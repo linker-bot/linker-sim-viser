@@ -1,0 +1,32 @@
+__pycache__/
+*.py[cod]
+
+# virtualenvs
+.venv/
+venv/
+
+# tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# build artifacts
+*.egg-info/
+build/
+dist/
+
+# recorded data — large, distributed separately
+data/
+outputs/
+
+# editors / IDEs
+.vscode/
+.idea/
+*.swp
+*~
+CLAUDE.md
+.claude
+
+# OS
+.DS_Store
+Thumbs.db

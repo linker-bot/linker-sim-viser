@@ -1,0 +1,8 @@
+port: 8080
+loop: false
+default_speed: 1.0
+speed_presets: [0.25, 0.5, 1.0, 2.0, 4.0]
+
+trails:
+  enabled: true
+  max_points: 500

@@ -1,0 +1,22 @@
+# VENDORED from linker-sim/packages/linker-robot-assets/src/linker_robot_assets/
+#   assets/components/hands/linkerhand_l6/decoder.yaml
+# TEMP: colleague may test before linker-robot-assets ships as a package.
+# When that lands, delete this whole `hand_decoders/` tree and depend on the
+# assets package directly.
+schema_version: 1
+convention: linear-fit-v0
+
+# SDK channel index -> templated actuated-joint name. `{S}` expands to
+# `l` (left) / `r` (right). SDK packs the two thumb DoFs as
+# (cmc_pitch, cmc_roll) — the opposite of the workstation URDF's <joint>
+# declaration order. Our config's `streams[*].joints` list is authoritative
+# for column order, so this file is currently only consulted for `convention`.
+channels:
+  - "{S}h_thumb_cmc_pitch"
+  - "{S}h_thumb_cmc_roll"
+  - "{S}h_index_mcp_pitch"
+  - "{S}h_middle_mcp_pitch"
+  - "{S}h_ring_mcp_pitch"
+  - "{S}h_pinky_mcp_pitch"
+
+clip_overrides: {}
