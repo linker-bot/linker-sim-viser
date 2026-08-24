@@ -1,0 +1,79 @@
+# a7_lite dual-arm + LinkerHand L25 workstation (16 actuated / hand).
+# URDF + meshes load from the installed linker-robot-assets package (single
+# source of truth); `pkg://` resolves against its asset_root().
+#
+# The npz must carry 16-wide hand columns (SDK reserved slots 11-14 stripped);
+# see linker-sim configs/source/data_collection_a7l25.yaml.
+urdf_path: pkg://workstations/a7_lite_l25_dc/workstation.urdf
+
+# Hand slice = raw SDK packet (SDK channel order, 0-255); decode_hand rescales
+# to 0-100 and reorders SDK->URDF, so `joints` is the URDF hand actuated-joint
+# document order (== manifest joints[role]).
+streams:
+  - key: qpos
+    slice: [0, 7]
+    joints:
+      - arm_left_L1_Joint
+      - arm_left_L2_Joint
+      - arm_left_L3_Joint
+      - arm_left_L4_Joint
+      - arm_left_L5_Joint
+      - arm_left_L6_Joint
+      - arm_left_L7_Joint
+
+  - key: qpos
+    slice: [7, 14]
+    joints:
+      - arm_right_R1_Joint
+      - arm_right_R2_Joint
+      - arm_right_R3_Joint
+      - arm_right_R4_Joint
+      - arm_right_R5_Joint
+      - arm_right_R6_Joint
+      - arm_right_R7_Joint
+
+  - key: qpos
+    slice: [14, 30]
+    joints:
+      - hand_left_lh_thumb_cmc_roll
+      - hand_left_lh_thumb_cmc_yaw
+      - hand_left_lh_thumb_cmc_pitch
+      - hand_left_lh_thumb_mcp
+      - hand_left_lh_index_mcp_roll
+      - hand_left_lh_index_mcp_pitch
+      - hand_left_lh_index_pip
+      - hand_left_lh_middle_mcp_roll
+      - hand_left_lh_middle_mcp_pitch
+      - hand_left_lh_middle_pip
+      - hand_left_lh_ring_mcp_roll
+      - hand_left_lh_ring_mcp_pitch
+      - hand_left_lh_ring_pip
+      - hand_left_lh_pinky_mcp_roll
+      - hand_left_lh_pinky_mcp_pitch
+      - hand_left_lh_pinky_pip
+    decoder: {kind: linkerhand_l25, side: left, sdk_range: [0, 255]}
+
+  - key: qpos
+    slice: [30, 46]
+    joints:
+      - hand_right_rh_thumb_cmc_roll
+      - hand_right_rh_thumb_cmc_yaw
+      - hand_right_rh_thumb_cmc_pitch
+      - hand_right_rh_thumb_mcp
+      - hand_right_rh_index_mcp_roll
+      - hand_right_rh_index_mcp_pitch
+      - hand_right_rh_index_pip
+      - hand_right_rh_middle_mcp_roll
+      - hand_right_rh_middle_mcp_pitch
+      - hand_right_rh_middle_pip
+      - hand_right_rh_ring_mcp_roll
+      - hand_right_rh_ring_mcp_pitch
+      - hand_right_rh_ring_pip
+      - hand_right_rh_pinky_mcp_roll
+      - hand_right_rh_pinky_mcp_pitch
+      - hand_right_rh_pinky_pip
+    decoder: {kind: linkerhand_l25, side: right, sdk_range: [0, 255]}
+
+ee_frames:
+  - {label: left_tcp,  link: hand_left_lh_hand_base_link,   color: [80, 140, 220]}
+  - {label: right_tcp, link: hand_right_rh_hand_base_link,  color: [230, 130, 60]}

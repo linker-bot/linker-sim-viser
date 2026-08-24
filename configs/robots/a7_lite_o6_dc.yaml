@@ -1,13 +1,11 @@
-# a7_lite dual-arm + LinkerHand L6 workstation.
+# a7_lite dual-arm + LinkerHand O6 workstation.
 # URDF + meshes load from the installed linker-robot-assets package (single
 # source of truth); `pkg://` resolves against its asset_root().
-urdf_path: pkg://workstations/a7_lite_l6_dc/workstation.urdf
+urdf_path: pkg://workstations/a7_lite_o6_dc/workstation.urdf
 
-# Arm streams: npz slice columns map positionally to `joints`.
-# Hand streams: the slice is the raw SDK packet (SDK channel order, 0-255);
-# decode_hand (linker-robot-assets) rescales to 0-100 and reorders SDK->URDF,
-# so `joints` here is the workstation URDF's hand actuated joints in document
-# order (== manifest joints[role]).
+# Hand slice = raw SDK packet (SDK channel order, 0-255); decode_hand rescales
+# to 0-100 and reorders SDK->URDF, so `joints` is the URDF hand actuated-joint
+# document order (== manifest joints[role]).
 streams:
   - key: qpos
     slice: [0, 7]
@@ -34,24 +32,24 @@ streams:
   - key: qpos
     slice: [14, 20]
     joints:
-      - hand_left_lh_thumb_cmc_roll
+      - hand_left_lh_thumb_cmc_yaw
       - hand_left_lh_thumb_cmc_pitch
       - hand_left_lh_index_mcp_pitch
       - hand_left_lh_middle_mcp_pitch
       - hand_left_lh_ring_mcp_pitch
       - hand_left_lh_pinky_mcp_pitch
-    decoder: {kind: linkerhand_l6, side: left, sdk_range: [0, 255]}
+    decoder: {kind: linkerhand_o6, side: left, sdk_range: [0, 255]}
 
   - key: qpos
     slice: [20, 26]
     joints:
-      - hand_right_rh_thumb_cmc_roll
+      - hand_right_rh_thumb_cmc_yaw
       - hand_right_rh_thumb_cmc_pitch
       - hand_right_rh_index_mcp_pitch
       - hand_right_rh_middle_mcp_pitch
       - hand_right_rh_ring_mcp_pitch
       - hand_right_rh_pinky_mcp_pitch
-    decoder: {kind: linkerhand_l6, side: right, sdk_range: [0, 255]}
+    decoder: {kind: linkerhand_o6, side: right, sdk_range: [0, 255]}
 
 ee_frames:
   - {label: left_tcp,  link: hand_left_lh_hand_base_link,   color: [80, 140, 220]}

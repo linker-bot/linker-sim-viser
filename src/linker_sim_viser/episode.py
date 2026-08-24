@@ -13,8 +13,9 @@ from pathlib import Path
 
 import numpy as np
 
+from linker_robot_assets.decoders import decode_hand
+
 from .config import RobotConfig
-from .decoders import decode_hand_sdk
 
 
 @dataclass
@@ -52,11 +53,13 @@ def load_episode(episode_dir: Path | str, robot: RobotConfig) -> Episode:
             lo, hi = s.decoder.sdk_range
             sdk_percent = (arr.astype(np.float32) - lo) * (100.0 / (hi - lo))
             hand_sdk[s.decoder.side] = arr.astype(np.float32)
-            arr = decode_hand_sdk(
+            # decode_hand takes SDK-order columns and returns radians in the
+            # hand's URDF actuated-joint order (== manifest joints[role], which
+            # is this stream's `joints`), reordering internally.
+            arr = decode_hand(
+                name=s.decoder.kind,
+                side=s.decoder.side,
                 sdk_0_100=sdk_percent,
-                hand_kind=s.decoder.kind,
-                joint_names=s.joints,
-                urdf_path=robot.urdf_path,
             )
 
         for j, joint in enumerate(s.joints):

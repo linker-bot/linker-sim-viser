@@ -84,22 +84,19 @@ def test_ee_frames_configured(robot):
 
 
 def test_linear_fit_endpoints(robot):
-    """SDK 100% → URDF lower, SDK 0% → URDF upper (locks the contract)."""
-    from linker_sim_viser.decoders import decode_hand_sdk
+    """SDK 100% → URDF lower, SDK 0% → URDF upper (shared decode_hand contract)."""
+    from linker_robot_assets.decoders import decode_hand
 
-    joints = [
-        "hand_left_lh_thumb_cmc_pitch",
-        "hand_left_lh_thumb_cmc_roll",
-        "hand_left_lh_index_mcp_pitch",
-        "hand_left_lh_middle_mcp_pitch",
-        "hand_left_lh_ring_mcp_pitch",
-        "hand_left_lh_pinky_mcp_pitch",
-    ]
+    # decode_hand emits columns in the hand's URDF actuated-joint order, which
+    # is this config's left-hand stream `joints` (== manifest order).
+    hand_left = next(
+        s for s in robot.streams if s.decoder and s.decoder.side == "left"
+    )
     limits = _urdf_joint_limits(str(robot.urdf_path))
-    lo = np.array([limits[j][0] for j in joints], dtype=np.float32)
-    hi = np.array([limits[j][1] for j in joints], dtype=np.float32)
+    lo = np.array([limits[j][0] for j in hand_left.joints], dtype=np.float32)
+    hi = np.array([limits[j][1] for j in hand_left.joints], dtype=np.float32)
 
-    at_100 = decode_hand_sdk(np.full(6, 100.0), "linkerhand_l6", joints, robot.urdf_path)
-    at_0 = decode_hand_sdk(np.zeros(6), "linkerhand_l6", joints, robot.urdf_path)
+    at_100 = decode_hand("linkerhand_l6", "left", np.full(6, 100.0))
+    at_0 = decode_hand("linkerhand_l6", "left", np.zeros(6))
     np.testing.assert_allclose(at_100, lo, atol=1e-5)
     np.testing.assert_allclose(at_0, hi, atol=1e-5)

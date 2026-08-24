@@ -8,12 +8,19 @@ dependencies = [
     "viser[urdf]>=1.0.20",
     "numpy>=1.26,<3",
     "pyyaml>=6.0",
+    "linker-robot-assets",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
 ]
+
+[tool.uv.sources]
+# Authoritative robot assets + hand decoders live in the sibling linker-sim
+# checkout. Editable path install so asset_root() resolves to its live
+# (git-lfs-pulled) full-res assets — single source of truth, no drift.
+linker-robot-assets = { path = "../linker-sim/packages/linker-robot-assets", editable = true }
 
 [build-system]
 requires = ["hatchling"]

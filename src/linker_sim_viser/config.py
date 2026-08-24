@@ -94,12 +94,21 @@ def load_robot_config(path: Path | str) -> RobotConfig:
         for e in raw.get("ee_frames", [])
     ]
 
-    urdf_path = (path.parent / raw["urdf_path"]).resolve()
+    raw_urdf = raw["urdf_path"]
+    if isinstance(raw_urdf, str) and raw_urdf.startswith("pkg://"):
+        # Resolve against the installed linker-robot-assets asset tree
+        # (single source of truth), e.g. pkg://workstations/<name>/workstation.urdf.
+        from linker_robot_assets import asset_root
+
+        urdf_path = (asset_root() / raw_urdf[len("pkg://") :]).resolve()
+    else:
+        urdf_path = (path.parent / raw_urdf).resolve()
     if not urdf_path.is_file():
         raise FileNotFoundError(
             f"urdf_path in {path} resolves to {urdf_path}, which does not exist. "
-            "The default v0 config points at the sibling `linker-sim/` checkout; "
-            "clone it alongside this repo or edit `urdf_path` in the robot config."
+            "A `pkg://` path needs linker-robot-assets installed; a relative path "
+            "points at the sibling `linker-sim/` checkout — clone it alongside "
+            "this repo or edit `urdf_path` in the robot config."
         )
     return RobotConfig(urdf_path=urdf_path, streams=streams, ee_frames=ee_frames)
 
