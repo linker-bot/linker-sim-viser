@@ -1,0 +1,35 @@
+# UMI-Dex replay (LEFT side): a7_lite dual-arm + LinkerHand L6 workstation,
+# driven from a converted UMI bag (scripts/umi_mcap_to_episode.py --side left).
+# Mirror of a7_lite_l6_umi_right.yaml. Every stream is already in RADIANS (the
+# converter ran IK + decode_hand offline), so there are NO decoders here.
+#
+# Only the LEFT arm + LEFT hand are driven; the right arm/hand columns of qpos
+# stay at 0 (their URDF default pose). NOTE: all UMI data seen so far is
+# right-handed — this config exists so `--side left` conversions are replayable,
+# but it is untested against real left-handed data.
+urdf_path: pkg://workstations/a7_lite_l6_dc/workstation.urdf
+
+streams:
+  - key: qpos
+    slice: [0, 7]
+    joints:
+      - arm_left_L1_Joint
+      - arm_left_L2_Joint
+      - arm_left_L3_Joint
+      - arm_left_L4_Joint
+      - arm_left_L5_Joint
+      - arm_left_L6_Joint
+      - arm_left_L7_Joint
+
+  - key: qpos
+    slice: [14, 20]
+    joints:
+      - hand_left_lh_thumb_cmc_roll
+      - hand_left_lh_thumb_cmc_pitch
+      - hand_left_lh_index_mcp_pitch
+      - hand_left_lh_middle_mcp_pitch
+      - hand_left_lh_ring_mcp_pitch
+      - hand_left_lh_pinky_mcp_pitch
+
+ee_frames:
+  - {label: left_tcp, link: hand_left_lh_hand_base_link, color: [80, 140, 220]}

@@ -52,6 +52,26 @@ Flags:
 
 Loader and decoder tests run against `data/episode_000000/`; they skip cleanly if that directory isn't present.
 
+## UMI-Dex mcap replay (experimental)
+
+UMI-Dex handheld bags (ROS 2 mcap: a 6-DOF wrist pose on `/vut/pose` + LinkerHand L6 percent on
+`/hand/joint_states`) are replayed by first converting them to a viewer-native episode, mirroring
+`linker-sim`'s UMI pipeline. The converter reads the bag, resamples to a fixed rate, anchors the
+wrist pose to the arm's `tool0` via a Nelder-Mead search, solves DLS IK to retarget the 7-DOF right
+arm, decodes the hand to radians, and writes `telemetry.npz` + `metadata.json` into the episode dir:
+
+```bash
+uv pip install -e ".[umi]"     # mcap + scipy (one-time)
+.venv/bin/python scripts/umi_mcap_to_episode.py --episode data/episode_000004 --side right
+.venv/bin/python scripts/replay.py --robot a7_lite_l6_umi_right --episode data/episode_000004
+```
+
+The converter prints the IK tracking residual (expect sub-mm to few-mm mean position error after the
+anchor search). Only the right arm + right hand are driven; the left arm stays at its default pose.
+If the arm lands awkwardly, `--no-search` plus manual `--dx/dy/dz`, `--anchor-roll/pitch/yaw`,
+`--remap-roll/pitch/yaw` knobs are available (same semantics as linker-sim). This is offline
+retargeting — see the scope amendment in [docs/design.md](docs/design.md).
+
 ## Adding a new robot config
 
 `configs/robots/*.yaml` maps npz columns to URDF joints and declares which links to trail:
@@ -81,7 +101,7 @@ Per [docs/design.md](docs/design.md):
 
 - **No physics.** For dynamics-aware replay use `linker-sim-mujoco`.
 - **No QC / anomaly detection.** Recorded data is treated as clean. Report upstream if you see systemic sensor issues.
-- **No forward simulation.** Motion planning + IK + cuMotion belong in `linker-sim-isaac`.
+- **No *runtime* forward simulation.** Playback never simulates forward. (Offline IK retargeting for replay — e.g. the UMI mcap converter — is allowed; see the scope amendment in [docs/design.md](docs/design.md).)
 - No multi-episode browser, no camera video sync, no annotations, no LeRobot parquet or ROS 2 `.mcap` ingest yet.
 
 ## Known limitations

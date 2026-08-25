@@ -8,7 +8,17 @@ Browser-based, physics-free replay of LinkerBot recorded episodes. Not a simulat
 
 - **No physics.** Viser has none, and we don't add any. If we ever need dynamics-aware replay, that's `linker-sim-mujoco`.
 - **No QC / anomaly detection.** The data-collection team runs a strict QC process; recorded data is treated as clean.
-- **No forward simulation.** Motion planning + IK + cuMotion belongs in `linker-sim-isaac`.
+- **No live forward simulation.** Runtime motion planning + cuMotion belongs in `linker-sim-isaac`. The viewer never simulates forward at playback time.
+
+### Scope amendment (2026-08): offline IK retargeting for replay
+
+The viewer runtime stays a pure joint-replayer, but **offline preprocessing tooling** in this
+repo may use kinematics (FK / Jacobian / IK) to turn a recorded end-effector trajectory into joint
+angles that the viewer then plays back. See `scripts/umi_mcap_to_episode.py`: it ingests a UMI-Dex
+mcap bag, anchors the wrist pose to the arm's `tool0` (Nelder-Mead search), solves DLS IK to
+retarget the 7-DOF arm, decodes the hand, and writes a normal `telemetry.npz` + `metadata.json`.
+This mirrors `linker-sim`'s UMI replay pipeline. It is *offline convert-time* work, distinct from
+the still-out-of-scope *runtime* forward-sim/planning.
 
 ## Foundation
 

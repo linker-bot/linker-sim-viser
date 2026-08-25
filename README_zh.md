@@ -52,6 +52,23 @@ uv pip install -e ".[dev]"
 
 加载器和解码器的测试针对 `data/episode_000000/` 运行；若该目录不存在，测试会自动跳过。
 
+## UMI-Dex mcap 回放（实验性）
+
+UMI-Dex 手持设备的 bag（ROS 2 mcap：`/vut/pose` 上的 6-DOF 手腕位姿 + `/hand/joint_states` 上的
+LinkerHand L6 百分比）通过先转换为查看器原生 episode 来回放，流程对齐 `linker-sim` 的 UMI 管线：
+转换器读取 bag、重采样到固定帧率、用 Nelder-Mead 搜索把手腕位姿锚定到机械臂的 `tool0`、解 DLS IK
+把 7-DOF 右臂重定向到该轨迹、把手部解码为弧度，然后把 `telemetry.npz` + `metadata.json` 写进 episode 目录：
+
+```bash
+uv pip install -e ".[umi]"     # mcap + scipy（一次性）
+.venv/bin/python scripts/umi_mcap_to_episode.py --episode data/episode_000004 --side right
+.venv/bin/python scripts/replay.py --robot a7_lite_l6_umi_right --episode data/episode_000004
+```
+
+转换器会打印 IK 跟踪残差（锚点搜索后位置平均误差通常在亚毫米到几毫米级）。只驱动右臂 + 右手，左臂保持默认位姿。
+如果机械臂落点别扭，可用 `--no-search` 配合手动 `--dx/dy/dz`、`--anchor-roll/pitch/yaw`、
+`--remap-roll/pitch/yaw`（语义与 linker-sim 一致）。这是离线重定向 —— 见 [docs/design.md](docs/design.md) 的范围修订说明。
+
 ## 添加新的机器人配置
 
 `configs/robots/*.yaml` 把 npz 的列映射到 URDF 关节，并声明要绘制轨迹的连杆：
@@ -81,7 +98,7 @@ ee_frames:
 
 - **不做物理仿真。** 需要动力学感知的回放请用 `linker-sim-mujoco`。
 - **不做 QC / 异常检测。** 录制数据默认视为干净。若发现系统性传感器问题，请反馈到上游修复。
-- **不做正向仿真。** 运动规划 + IK + cuMotion 属于 `linker-sim-isaac`。
+- **不做*运行时*正向仿真。** 回放时从不做前向仿真。（用于回放的*离线* IK 重定向 —— 例如 UMI mcap 转换器 —— 是允许的；见 [docs/design.md](docs/design.md) 的范围修订。）
 - v0 暂不支持多 episode 浏览、相机视频同步、标注、LeRobot parquet 或 ROS 2 `.mcap` 摄入。
 
 ## 已知限制

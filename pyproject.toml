@@ -15,6 +15,13 @@ dependencies = [
 dev = [
     "pytest>=8.0",
 ]
+# UMI-Dex mcap ingest + offline IK retargeting (scripts/umi_mcap_to_episode.py).
+# Not needed to run the viewer on already-converted episodes.
+umi = [
+    "mcap>=1.2",
+    "mcap-ros2-support>=0.5",
+    "scipy>=1.11",
+]
 
 [tool.uv.sources]
 # Authoritative robot assets + hand decoders live in the sibling linker-sim
