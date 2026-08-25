@@ -7,7 +7,7 @@ Browser-based, physics-free replay of LinkerBot recorded episodes. Not a simulat
 ## Non-goals (explicit)
 
 - **No physics.** Viser has none, and we don't add any. If we ever need dynamics-aware replay, that's `linker-sim-mujoco`.
-- **No QC / anomaly detection.** The data-collection team runs a strict QC process; recorded data is treated as clean.
+- **No QC / anomaly detection.** Recorded data is assumed to have passed upstream QC and is treated as clean.
 - **No live forward simulation.** Runtime motion planning + cuMotion belongs in `linker-sim-isaac`. The viewer never simulates forward at playback time.
 
 ### Scope amendment (2026-08): offline IK retargeting for replay
@@ -54,7 +54,7 @@ Start with Path 1, upgrade to Path 2 only when we hit the ceiling.
 
 ## Assets
 
-Interim: reference URDFs and meshes in `../linker-sim/packages/linker-robot-assets/` via relative paths in the robot config. This is a temporary hack pending the meeting with colleague about a proper installable `linker-robot-assets` package. Once that lands, robot configs will resolve URDF paths through the installed package.
+Interim: reference URDFs and meshes in `../linker-sim/packages/linker-robot-assets/` via relative paths in the robot config. This is an interim approach until `linker-robot-assets` is published as an installable package. Once that lands, robot configs will resolve URDF paths through the installed package.
 
 ## Hand decoders
 
