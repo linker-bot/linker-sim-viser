@@ -54,7 +54,12 @@ Start with Path 1, upgrade to Path 2 only when we hit the ceiling.
 
 ## Assets
 
-Interim: reference URDFs and meshes in `../linker-sim/packages/linker-robot-assets/` via relative paths in the robot config. This is an interim approach until `linker-robot-assets` is published as an installable package. Once that lands, robot configs will resolve URDF paths through the installed package.
+Robot URDFs, meshes, and hand decoders come from the `linker-sim-assets` repo,
+vendored as a git submodule at `packages/linker-robot-assets` and installed as an
+editable path dependency. The submodule is pinned to a release commit, so asset
+updates are adopted deliberately (bump the submodule pointer) rather than picked up
+implicitly. Robot configs resolve `urdf_path` (`pkg://` paths) through the package's
+`asset_root()`.
 
 ## Hand decoders
 

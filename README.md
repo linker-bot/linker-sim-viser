@@ -21,14 +21,19 @@ Part of the `linker-sim` family. Sibling repos: `linker-sim-mujoco` (physics-awa
 
 ## Install
 
-**Prerequisite — the sibling `linker-sim` checkout.** This repo is not standalone-installable. `pyproject.toml` pulls `linker-robot-assets` via an editable path dependency on `../linker-sim/packages/linker-robot-assets`, and robot configs resolve URDFs through that package (`pkg://` paths). Clone `linker-sim` as a sibling directory first, so that `../linker-sim/packages/linker-robot-assets` exists relative to this repo — install and runtime both depend on it.
+**Prerequisite — the `linker-robot-assets` submodule.** This repo vendors the authoritative robot assets + hand decoders as a git submodule at [`packages/linker-robot-assets`](packages/linker-robot-assets) (the [`linker-sim-assets`](https://github.com/linker-bot/linker-sim-assets) repo, pinned to a release commit), installed as an editable path dependency; robot configs resolve URDFs through it (`pkg://` paths).
+
+**Git LFS is required.** The submodule's meshes are LFS-tracked. Install `git-lfs` once per machine (`apt install git-lfs && git lfs install`), then clone with submodules and pull the meshes:
 
 ```bash
-uv venv
-uv pip install -e ".[dev]"
-```
+git clone --recurse-submodules <repo-url>
+# already cloned without submodules / LFS?
+git submodule update --init
+git -C packages/linker-robot-assets lfs pull
 
-**Git LFS is required to clone.** The 15 vendored STL meshes under [`assets/`](assets/) are LFS-tracked (see [`.gitattributes`](.gitattributes)). Install `git-lfs` once per machine (`apt install git-lfs && git lfs install`), then `git clone` will fetch the meshes. If you've already cloned without LFS, run `git lfs install && git lfs pull`.
+uv venv
+uv sync --extra dev
+```
 
 ## Requirements
 
@@ -117,8 +122,7 @@ Read these before filing bugs — they're deliberate v0 tradeoffs or unresolved 
 - **SDK sensor dropouts show through as visible jerks.** ~4% of frames per hand carry 1–2 frame spikes (index/thumb DoFs snapping fully closed then back). The keypose detector filters them; the pose stream doesn't (design policy: viewer stays faithful, upstream fixes the sensor path). If this becomes a blocker, we can add an opt-in render-side median filter — flag it and we'll reopen.
 - **Precomputed EE poses in the npz are unusable.** `ee_poses_qpos_{left,right}` are in each arm's J2 frame, not workstation world (the collection pipeline used single-arm URDFs). We ignore them and FK from the workstation URDF instead. No cross-check is performed.
 - **Camera + trail visuals are tuned for `a7_lite_l6_dc`.** Initial camera pose, `head_radius`, `tail_intensity`, and trail `line_width` are hardcoded for this workstation's scale. A taller/shorter robot will need re-tuning; no config path for that yet.
-- **Hand decoding lives in `linker-robot-assets`, not vendored here.** The decoder (`linker_robot_assets.decoders.decode_hand`) and its per-hand `decoder.yaml` sidecar ship inside the installed package; this repo keeps only a small URDF joint-limit reader (`src/linker_sim_viser/decoders.py`) used for validation. There is no local copy to drift out of sync, but decode behavior is only as current as the `linker-robot-assets` version in the sibling checkout.
-- **Partial vendored mesh snapshot.** [`assets/`](assets/) holds 15 LFS-tracked STL meshes (the a7_lite arm variants plus a torso base) copied from `linker-robot-assets`. The authoritative URDFs and full-resolution meshes come from the installed `linker-robot-assets` package (see [Install](#install)); robot configs resolve `urdf_path` via `pkg://` against it. This snapshot is not self-contained — the sibling `linker-sim` checkout is still required to install and run.
+- **Hand decoding lives in `linker-robot-assets`, not vendored here.** The decoder (`linker_robot_assets.decoders.decode_hand`) and its per-hand `decoder.yaml` sidecar ship inside the installed package; this repo keeps only a small URDF joint-limit reader (`src/linker_sim_viser/decoders.py`) used for validation. There is no local copy to drift out of sync, but decode behavior is only as current as the pinned `linker-robot-assets` submodule commit.
 
 ## Roadmap
 

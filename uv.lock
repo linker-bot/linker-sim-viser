@@ -335,7 +335,7 @@ wheels = [
 [[package]]
 name = "linker-robot-assets"
 version = "0.1.0"
-source = { editable = "../linker-sim/packages/linker-robot-assets" }
+source = { editable = "packages/linker-robot-assets" }
 dependencies = [
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
@@ -375,7 +375,7 @@ umi = [
 
 [package.metadata]
 requires-dist = [
-    { name = "linker-robot-assets", editable = "../linker-sim/packages/linker-robot-assets" },
+    { name = "linker-robot-assets", editable = "packages/linker-robot-assets" },
     { name = "mcap", marker = "extra == 'umi'", specifier = ">=1.2" },
     { name = "mcap-ros2-support", marker = "extra == 'umi'", specifier = ">=0.5" },
     { name = "numpy", specifier = ">=1.26,<3" },
