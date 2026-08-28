@@ -79,7 +79,7 @@ The converter prints the IK tracking residual (expect sub-mm to few-mm mean posi
 anchor search). Only the right arm + right hand are driven; the left arm stays at its default pose.
 If the arm lands awkwardly, `--no-search` plus manual `--dx/dy/dz`, `--anchor-roll/pitch/yaw`,
 `--remap-roll/pitch/yaw` knobs are available (same semantics as linker-sim). This is offline
-retargeting — see the scope amendment in [docs/design.md](docs/design.md).
+retargeting, not runtime forward simulation.
 
 ## Adding a new robot config
 
@@ -106,11 +106,11 @@ ee_frames:
 
 ## Non-goals (v0)
 
-Per [docs/design.md](docs/design.md):
+By design:
 
 - **No physics.** Dynamics-aware replay is the domain of the planned `linker-sim-mujoco`.
 - **No QC / anomaly detection.** Recorded data is treated as clean. Report upstream if you see systemic sensor issues.
-- **No *runtime* forward simulation.** Playback never simulates forward. (Offline IK retargeting for replay — e.g. the UMI mcap converter — is allowed; see the scope amendment in [docs/design.md](docs/design.md).)
+- **No *runtime* forward simulation.** Playback never simulates forward. (Offline IK retargeting for replay — e.g. the UMI mcap converter — is allowed.)
 - No multi-episode browser, no camera video sync, no annotations, no LeRobot parquet or ROS 2 `.mcap` ingest yet.
 
 ## Known limitations
@@ -126,7 +126,7 @@ Read these before filing bugs — they're deliberate v0 tradeoffs or unresolved 
 
 ## Roadmap
 
-See [docs/design.md](docs/design.md) for the v1+ backlog (multi-episode, video sync, side-by-side, annotations, embedding map, companion-DOM timeline).
+v1+ backlog: multi-episode browser, camera/video sync, side-by-side comparison, frame/span annotations, embedding-space episode map, and a companion-DOM timeline outside the Viser sidebar.
 
 ## License
 

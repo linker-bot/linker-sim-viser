@@ -76,7 +76,7 @@ uv pip install -e ".[umi]"     # mcap + scipy（一次性）
 
 转换器会打印 IK 跟踪残差（锚点搜索后位置平均误差通常在亚毫米到几毫米级）。只驱动右臂 + 右手，左臂保持默认位姿。
 如果机械臂落点别扭，可用 `--no-search` 配合手动 `--dx/dy/dz`、`--anchor-roll/pitch/yaw`、
-`--remap-roll/pitch/yaw`（语义与 linker-sim 一致）。这是离线重定向 —— 见 [docs/design.md](docs/design.md) 的范围修订说明。
+`--remap-roll/pitch/yaw`（语义与 linker-sim 一致）。这是离线重定向，而非运行时正向仿真。
 
 ## 添加新的机器人配置
 
@@ -103,11 +103,11 @@ ee_frames:
 
 ## 非目标 (v0)
 
-见 [docs/design.md](docs/design.md)：
+按设计：
 
 - **不做物理仿真。** 需要动力学感知的回放属于规划中的 `linker-sim-mujoco`。
 - **不做 QC / 异常检测。** 录制数据默认视为干净。若发现系统性传感器问题，请反馈到上游修复。
-- **不做*运行时*正向仿真。** 回放时从不做前向仿真。（用于回放的*离线* IK 重定向 —— 例如 UMI mcap 转换器 —— 是允许的；见 [docs/design.md](docs/design.md) 的范围修订。）
+- **不做*运行时*正向仿真。** 回放时从不做前向仿真。（用于回放的*离线* IK 重定向 —— 例如 UMI mcap 转换器 —— 是允许的。）
 - v0 暂不支持多 episode 浏览、相机视频同步、标注、LeRobot parquet 或 ROS 2 `.mcap` 摄入。
 
 ## 已知限制
@@ -123,7 +123,7 @@ ee_frames:
 
 ## 路线图
 
-v1+ 待办详见 [docs/design.md](docs/design.md)（多 episode 浏览、视频同步、并排对比、标注、embedding map、独立于 Viser 侧栏的伴生 DOM 时间轴等等）。
+v1+ 待办：多 episode 浏览、相机/视频同步、并排对比、帧/区间标注、embedding 空间地图，以及独立于 Viser 侧栏的伴生 DOM 时间轴。
 
 ## 许可
 
