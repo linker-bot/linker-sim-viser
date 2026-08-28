@@ -24,10 +24,11 @@ umi = [
 ]
 
 [tool.uv.sources]
-# Authoritative robot assets + hand decoders live in the sibling linker-sim
-# checkout. Editable path install so asset_root() resolves to its live
-# (git-lfs-pulled) full-res assets — single source of truth, no drift.
-linker-robot-assets = { path = "../linker-sim/packages/linker-robot-assets", editable = true }
+# Authoritative robot assets + hand decoders come from the linker-sim-assets
+# repo, vendored as a git submodule at packages/linker-robot-assets and
+# installed editable so asset_root() resolves to its git-lfs-pulled full-res
+# assets — single versioned source of truth, pinned by submodule commit.
+linker-robot-assets = { path = "packages/linker-robot-assets", editable = true }
 
 [build-system]
 requires = ["hatchling"]
