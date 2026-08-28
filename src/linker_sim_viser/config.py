@@ -46,8 +46,16 @@ class RobotConfig:
 
 @dataclass
 class TrailsConfig:
-    enabled: bool = True
+    # Off by default: comet EE trails are an annotation, not core replay.
+    enabled: bool = False
     max_points: int = 500
+
+
+@dataclass
+class KeyposesConfig:
+    # Off by default: keypose stamps are data-driven annotations that draw a
+    # persistent 3D label at each detected grasp/release. Opt in per config.
+    enabled: bool = False
 
 
 @dataclass
@@ -57,6 +65,7 @@ class ViewerConfig:
     default_speed: float = 1.0
     speed_presets: tuple[float, ...] = (0.25, 0.5, 1.0, 2.0, 4.0)
     trails: TrailsConfig = field(default_factory=TrailsConfig)
+    keyposes: KeyposesConfig = field(default_factory=KeyposesConfig)
 
 
 def load_robot_config(path: Path | str) -> RobotConfig:
@@ -116,10 +125,12 @@ def load_robot_config(path: Path | str) -> RobotConfig:
 def load_viewer_config(path: Path | str) -> ViewerConfig:
     raw = yaml.safe_load(Path(path).read_text()) or {}
     trails = TrailsConfig(**raw.get("trails", {}))
+    keyposes = KeyposesConfig(**raw.get("keyposes", {}))
     return ViewerConfig(
         port=raw.get("port", 8080),
         loop=raw.get("loop", False),
         default_speed=raw.get("default_speed", 1.0),
         speed_presets=tuple(raw.get("speed_presets", (0.25, 0.5, 1.0, 2.0, 4.0))),
         trails=trails,
+        keyposes=keyposes,
     )
