@@ -46,7 +46,8 @@ class RobotConfig:
 
 @dataclass
 class TrailsConfig:
-    enabled: bool = True
+    # Off by default: comet EE trails are an annotation, not core replay.
+    enabled: bool = False
     max_points: int = 500
 
 

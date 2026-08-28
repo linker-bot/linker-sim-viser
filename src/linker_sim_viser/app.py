@@ -55,19 +55,22 @@ def run(
     trails: list[GrowingTrail] = []
     ee_xyz_by_label: dict[str, np.ndarray] = {}
     ee_color_by_label: dict[str, tuple[int, int, int]] = {}
-    if viewer_cfg.trails.enabled:
+    # EE FK positions feed both trails and keypose stamps; compute them if
+    # either is enabled (cheap), but only build trail geometry when trails are on.
+    if viewer_cfg.trails.enabled or viewer_cfg.keyposes.enabled:
         for ee in robot.ee_frames:
             xyz = compute_ee_positions(scene.urdf, episode.joint_positions, ee.link)
             ee_xyz_by_label[ee.label] = xyz
             ee_color_by_label[ee.label] = ee.color
-            trails.append(
-                GrowingTrail(
-                    server,
-                    positions=xyz,
-                    name=f"/trails/{ee.label}",
-                    color=ee.color,
+            if viewer_cfg.trails.enabled:
+                trails.append(
+                    GrowingTrail(
+                        server,
+                        positions=xyz,
+                        name=f"/trails/{ee.label}",
+                        color=ee.color,
+                    )
                 )
-            )
 
     # Keypose stamps (opt-in): detect from each hand's SDK stream, stamp on the
     # matching EE trail. Sides are keyed by "left"/"right" in hand_sdk but

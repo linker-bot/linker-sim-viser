@@ -3,8 +3,10 @@ loop: false
 default_speed: 1.0
 speed_presets: [0.25, 0.5, 1.0, 2.0, 4.0]
 
+# Comet EE motion trails. Off by default (an annotation over the base replay);
+# set enabled: true to draw a fading trail per configured EE frame.
 trails:
-  enabled: true
+  enabled: false
   max_points: 500
 
 # Keypose stamps: persistent 3D "grasp_close@N" / "release@N" labels at detected
