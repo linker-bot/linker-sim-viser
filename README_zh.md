@@ -53,6 +53,18 @@ uv sync --extra dev
 - `--port INT` —— 覆盖查看器端口（默认从 `configs/viewer.yaml` 读取）。
 - `--viewer-config PATH` —— 使用另一份查看器配置。
 
+## 查看器配置
+
+`configs/viewer.yaml` 保存回放与标注的默认值（用 `--viewer-config PATH` 覆盖）。两种可视化标注**默认关闭**，可按需在此开启：
+
+```yaml
+trails:
+  enabled: true      # 每个配置的 ee_frame 一条彗星式末端轨迹（默认：false）
+  max_points: 500    # 长轨迹最多下采样到该点数
+keyposes:
+  enabled: true      # 在检测到的抓取/释放事件处显示 3D "grasp_close@N" / "release@N" 标记（默认：false）
+```
+
 ## 测试
 
 ```bash

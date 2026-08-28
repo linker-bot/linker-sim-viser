@@ -53,6 +53,18 @@ Flags:
 - `--port INT` — override the viewer port (default from `configs/viewer.yaml`).
 - `--viewer-config PATH` — use a different viewer config.
 
+## Viewer config
+
+`configs/viewer.yaml` holds playback + annotation defaults (override with `--viewer-config PATH`). The two visual annotations are **off by default** — enable them here as you wish:
+
+```yaml
+trails:
+  enabled: true      # comet EE motion trail per configured ee_frame (default: false)
+  max_points: 500    # downsample long trajectories to at most this many points
+keyposes:
+  enabled: true      # 3D "grasp_close@N" / "release@N" stamps at detected grasp/release events (default: false)
+```
+
 ## Tests
 
 ```bash
