@@ -21,14 +21,19 @@
 
 ## 安装
 
-**前置条件 —— 姊妹仓库 `linker-sim` checkout。** 本仓库无法独立安装。`pyproject.toml` 通过指向 `../linker-sim/packages/linker-robot-assets` 的可编辑路径依赖引入 `linker-robot-assets`，机器人配置也通过该包（`pkg://` 路径）解析 URDF。请先把 `linker-sim` 作为同级目录 clone 下来，使相对本仓库的 `../linker-sim/packages/linker-robot-assets` 存在 —— 安装和运行都依赖它。
+**前置条件 —— `linker-robot-assets` 子模块。** 本仓库将权威的机器人资产 + 手部解码器以 git 子模块的形式引入，位于 [`packages/linker-robot-assets`](packages/linker-robot-assets)（即 [`linker-sim-assets`](https://github.com/linker-bot/linker-sim-assets) 仓库，固定到某个发布 commit），并作为可编辑路径依赖安装；机器人配置通过它解析 URDF（`pkg://` 路径）。
+
+**需要 Git LFS。** 子模块中的网格由 LFS 管理。每台机器安装一次 `git-lfs`（`apt install git-lfs && git lfs install`），然后带子模块克隆并拉取网格：
 
 ```bash
-uv venv
-uv pip install -e ".[dev]"
-```
+git clone --recurse-submodules <repo-url>
+# 已经在没有子模块 / LFS 的情况下克隆了？
+git submodule update --init
+git -C packages/linker-robot-assets lfs pull
 
-**克隆时需要 Git LFS。** [`assets/`](assets/) 下 15 个内置的 STL 网格由 LFS 管理（见 [`.gitattributes`](.gitattributes)）。每台机器安装一次 `git-lfs`（`apt install git-lfs && git lfs install`），然后 `git clone` 会自动拉取网格。如果你已经在没启用 LFS 的情况下 clone 了，运行 `git lfs install && git lfs pull` 补拉即可。
+uv venv
+uv sync --extra dev
+```
 
 ## 前置条件
 
@@ -114,8 +119,7 @@ ee_frames:
 - **SDK 传感器丢帧会导致回放画面有可见的抖动。** 每只手约 4% 的帧带 1–2 帧的尖峰（食指/拇指自由度瞬间闭合再回弹）。关键姿态检测器会过滤这些，但姿态流本身不做过滤（设计策略：查看器保持忠实，传感器路径由上游修复）。如果这成为阻塞问题，可以加一个可选的渲染端中值滤波 —— 反馈一下我们再重开这个讨论。
 - **npz 中预计算的末端执行器姿态不能直接使用。** `ee_poses_qpos_{left,right}` 是相对每条臂的 J2 坐标系的（采集流水线用的是单臂 URDF），并非工作站世界系。我们忽略这些字段，改用工作站 URDF 做 FK。也没有做对照校验。
 - **相机和轨迹视觉效果针对 `a7_lite_l6_dc` 调优。** 初始相机位姿、`head_radius`、`tail_intensity`、轨迹 `line_width` 都为这个工作站的尺度硬编码。换更高或更矮的机器人需要重新调，目前还没有对应的配置项。
-- **手部解码位于 `linker-robot-assets`，未在本仓库内置拷贝。** 解码器（`linker_robot_assets.decoders.decode_hand`）及其每只手的 `decoder.yaml` sidecar 都在已安装的包里；本仓库只保留一个用于校验的小型 URDF 关节限位读取器（`src/linker_sim_viser/decoders.py`）。这里没有本地拷贝，不会出现不同步的漂移，但解码行为只与姊妹 checkout 中 `linker-robot-assets` 的版本一致。
-- **部分内置网格快照。** [`assets/`](assets/) 目录保存了 15 个由 LFS 管理的 STL 网格（a7_lite 的左右臂变体加一个躯干基座），从 `linker-robot-assets` 拷贝而来。权威的 URDF 与全分辨率网格来自已安装的 `linker-robot-assets` 包（见 [安装](#安装)）；机器人配置通过 `pkg://` 相对该包解析 `urdf_path`。这个快照并非自包含 —— 安装和运行仍需要姊妹仓库 `linker-sim` 的 checkout。
+- **手部解码位于 `linker-robot-assets`，未在本仓库内置拷贝。** 解码器（`linker_robot_assets.decoders.decode_hand`）及其每只手的 `decoder.yaml` sidecar 都在已安装的包里；本仓库只保留一个用于校验的小型 URDF 关节限位读取器（`src/linker_sim_viser/decoders.py`）。这里没有本地拷贝，不会出现不同步的漂移，但解码行为只与固定的 `linker-robot-assets` 子模块 commit 一致。
 
 ## 路线图
 
