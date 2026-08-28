@@ -69,23 +69,24 @@ def run(
                 )
             )
 
-    # Keypose stamps: detect from each hand's SDK stream, stamp on the
+    # Keypose stamps (opt-in): detect from each hand's SDK stream, stamp on the
     # matching EE trail. Sides are keyed by "left"/"right" in hand_sdk but
     # by label ("left_tcp"/"right_tcp") in ee_xyz_by_label — bridge here.
-    label_by_side = {"left": "left_tcp", "right": "right_tcp"}
-    for side, sdk in episode.hand_sdk.items():
-        label = label_by_side.get(side)
-        if label is None or label not in ee_xyz_by_label:
-            continue
-        events = keypose_events_from_hand(sdk, side=side)
-        print(f"[linker-sim-viser] keyposes {side}-hand: {len(events)} event(s)")
-        if events:
-            add_keypose_stamps(
-                server,
-                events=events,
-                ee_xyz_by_side={side: ee_xyz_by_label[label]},
-                color_by_side={side: ee_color_by_label[label]},
-            )
+    if viewer_cfg.keyposes.enabled:
+        label_by_side = {"left": "left_tcp", "right": "right_tcp"}
+        for side, sdk in episode.hand_sdk.items():
+            label = label_by_side.get(side)
+            if label is None or label not in ee_xyz_by_label:
+                continue
+            events = keypose_events_from_hand(sdk, side=side)
+            print(f"[linker-sim-viser] keyposes {side}-hand: {len(events)} event(s)")
+            if events:
+                add_keypose_stamps(
+                    server,
+                    events=events,
+                    ee_xyz_by_side={side: ee_xyz_by_label[label]},
+                    color_by_side={side: ee_color_by_label[label]},
+                )
 
     joint_names = tuple(episode.joint_positions.keys())
     joint_stack = _stack_joints(episode.joint_positions, joint_names)   # (T, J)

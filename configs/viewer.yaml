@@ -6,3 +6,9 @@ speed_presets: [0.25, 0.5, 1.0, 2.0, 4.0]
 trails:
   enabled: true
   max_points: 500
+
+# Keypose stamps: persistent 3D "grasp_close@N" / "release@N" labels at detected
+# hand grasp/release events. Off by default (data-driven, can clutter the scene);
+# set enabled: true to annotate manipulation episodes.
+keyposes:
+  enabled: false
