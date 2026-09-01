@@ -39,6 +39,30 @@ def load_episode(episode_dir: Path | str, robot: RobotConfig) -> Episode:
     joint_positions: dict[str, np.ndarray] = {}
     hand_sdk: dict[str, np.ndarray] = {}
 
+    # Fail fast on a config↔recording mismatch. A robot config declares column
+    # ranges into each npz key, and numpy silently *truncates* an over-long slice
+    # (`arr[:, 14:30]` on a 26-wide array yields 12 cols, not an error), so the
+    # real cause otherwise only surfaces downstream as a cryptic per-stream count
+    # mismatch. Check the declared ranges against the actual array width here and
+    # say why: almost always the --robot config was recorded with a different
+    # hand/arm than this episode (e.g. an L6 recording — 26-col qpos — replayed
+    # with an L25 config that wants 46).
+    needed: dict[str, int] = {}
+    for s in robot.streams:
+        if s.slice is not None:
+            needed[s.key] = max(needed.get(s.key, 0), s.slice[1])
+    for key, need in needed.items():
+        have = np.asarray(npz[key]).shape[1]
+        if have < need:
+            raise ValueError(
+                f"robot config expects a {need}-column {key!r} array, but this "
+                f"episode's {key!r} is only {have} columns wide. The --robot config "
+                f"likely does not match the recording (e.g. replaying a 6-DoF "
+                f"LinkerHand L6 episode, whose qpos is 26 columns, with an L25 "
+                f"config that expects 46). Use the robot config matching the "
+                f"hand/arm this episode was recorded with."
+            )
+
     for s in robot.streams:
         arr = np.asarray(npz[s.key])
         if s.slice is not None:
