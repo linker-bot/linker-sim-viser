@@ -36,6 +36,18 @@ def test_frame_past_end_clamps_to_last_frame(gui):
     assert gui._slider.value == N_FRAMES - 1  # and the widget agrees
 
 
+def test_frame_equal_to_count_clamps(gui):
+    """Off-by-one: `n_frames` looks in-range but the last valid index is
+    n_frames - 1. Verified against data/episode_000010_l20, where typing 1053
+    into a 1053-frame episode raised
+    "IndexError: index 1053 is out of bounds for axis 0 with size 1053".
+    """
+    gui._slider.value = N_FRAMES
+
+    assert gui.frame == N_FRAMES - 1
+    assert gui._slider.value == N_FRAMES - 1
+
+
 def test_negative_frame_clamps_to_zero(gui):
     """The other end: a negative index would silently render from the tail."""
     gui._slider.value = -20
