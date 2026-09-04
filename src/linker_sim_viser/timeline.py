@@ -86,6 +86,20 @@ class PlaybackGUI:
     def _current_speed(self) -> float:
         return float(self._speed.value.rstrip("x"))
 
+    def seconds_until_next_frame(self) -> float:
+        """Wall seconds until `frame` next advances, for pacing the caller's loop.
+
+        `inf` while paused: there is no pending deadline, so the caller is free
+        to poll at whatever rate keeps the GUI responsive.
+        """
+        if not self._playing:
+            return float("inf")
+        speed = self._current_speed()
+        if speed <= 0.0:
+            return float("inf")
+        frames_ahead = (int(self._frame_f) + 1) - self._frame_f    # in (0, 1]
+        return frames_ahead * self._dt / speed
+
     def _toggle_play(self) -> None:
         self._set_playing(not self._playing)
 
