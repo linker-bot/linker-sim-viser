@@ -2,13 +2,18 @@
 # URDF + meshes load from the installed linker-robot-assets package (single
 # source of truth); `pkg://` resolves against its asset_root().
 #
-# The npz must carry 16-wide hand columns (SDK reserved slots 11-14 stripped);
-# see linker-sim configs/source/data_collection_a7l25.yaml.
+# One hand, three names: G20 (SDK), L20 (data collection), L25 (these assets).
+# Its SDK puts a 20-slot vector on the wire per hand, four of them reserved,
+# and the collection pipeline stores that packet verbatim — so each hand block
+# is 20 columns and qpos is 7+7+20+20 = 54 wide. `slots: raw` says so; the
+# width comes from the hand's declared SDK layout, and decode_hand drops the
+# reserved slots. Do not hand-write hand widths here (issues #7, #9).
 urdf_path: pkg://workstations/a7_lite_l25_dc/workstation.urdf
 
-# Hand slice = raw SDK packet (SDK channel order, 0-255); decode_hand rescales
-# to 0-100 and reorders SDK->URDF, so `joints` is the URDF hand actuated-joint
-# document order (== manifest joints[role]).
+# Arm streams: npz slice columns map positionally to `joints`.
+# Hand streams: `offset` is the block's first column (SDK channel order,
+# 0-255); decode_hand rescales to 0-100 and reorders SDK->URDF, so `joints`
+# is the URDF hand actuated-joint document order (== manifest joints[role]).
 streams:
   - key: qpos
     slice: [0, 7]
@@ -33,7 +38,7 @@ streams:
       - arm_right_R7_Joint
 
   - key: qpos
-    slice: [14, 30]
+    offset: 14
     joints:
       - hand_left_lh_thumb_cmc_roll
       - hand_left_lh_thumb_cmc_yaw
@@ -51,10 +56,10 @@ streams:
       - hand_left_lh_pinky_mcp_roll
       - hand_left_lh_pinky_mcp_pitch
       - hand_left_lh_pinky_pip
-    decoder: {kind: linkerhand_l25, side: left, sdk_range: [0, 255]}
+    decoder: {kind: linkerhand_l25, side: left, sdk_range: [0, 255], slots: raw}
 
   - key: qpos
-    slice: [30, 46]
+    offset: 34
     joints:
       - hand_right_rh_thumb_cmc_roll
       - hand_right_rh_thumb_cmc_yaw
@@ -72,7 +77,7 @@ streams:
       - hand_right_rh_pinky_mcp_roll
       - hand_right_rh_pinky_mcp_pitch
       - hand_right_rh_pinky_pip
-    decoder: {kind: linkerhand_l25, side: right, sdk_range: [0, 255]}
+    decoder: {kind: linkerhand_l25, side: right, sdk_range: [0, 255], slots: raw}
 
 ee_frames:
   - {label: left_tcp,  link: hand_left_lh_hand_base_link,   color: [80, 140, 220]}
