@@ -97,6 +97,13 @@ def run(
     print(f"[linker-sim-viser] episode={episode.name} frames={episode.n_frames} "
           f"dt={episode.dt:.4f}s -> http://localhost:{resolved_port}")
 
+    # Pace the loop to the next frame's deadline. Sleeping a fixed interval
+    # instead quantizes frame *presentation* to the loop period (~12ms here:
+    # sleep + render), which has no relation to the frame period -- at 1x that
+    # scatters frames 29-39ms apart instead of every 33.3ms, and at 4x the loop
+    # is slower than the frame rate, so frames drop in bursts (issue #10).
+    # The ceiling only bounds how long a pause/speed click can sit unhandled.
+    poll_ceiling = 1.0 / 60.0
     last_rendered = -1
     while True:
         gui.tick()
@@ -106,7 +113,7 @@ def run(
             for tr in trails:
                 tr.update(f)
             last_rendered = f
-        time.sleep(1.0 / 120.0)                # 120 Hz outer loop cap
+        time.sleep(min(gui.seconds_until_next_frame(), poll_ceiling))
 
 
 def _stack_joints(joint_positions, joint_names):
