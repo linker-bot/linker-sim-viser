@@ -95,9 +95,17 @@ class PlaybackGUI:
         self._last_tick_wall = None            # reset elapsed accumulator
 
     def _on_scrub(self) -> None:
+        # Viser hands us typed-in slider values verbatim, without clamping to
+        # the widget's min/max -- so a client can send any frame number at all
+        # (issue #11: typing past the end used to IndexError out of the main
+        # loop and kill the server). Clamp, and snap the widget so the box
+        # agrees with the frame being rendered.
+        frame = max(0, min(int(self._slider.value), self._n_frames - 1))
+        if self._slider.value != frame:
+            self._slider.value = frame     # re-enters here once, then agrees
         if not self._playing:
-            self._frame_f = float(self._slider.value)
-            self._time_label.value = self._format_time(self._slider.value)
+            self._frame_f = float(frame)
+            self._time_label.value = self._format_time(frame)
 
     def _format_time(self, frame: int) -> str:
         t = frame * self._dt
