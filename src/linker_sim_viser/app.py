@@ -36,6 +36,13 @@ def run(
 
     server = viser.ViserServer(port=resolved_port)
     scene = SceneRobot(server, urdf_path=robot.urdf_path)
+    # Shadows are the dominant client-side cost: viser's default light casts a
+    # 3-cascade PCSS shadow map it recomputes every frame, so each frame draws
+    # the scene ~4x (one colour pass + three shadow depth passes). At the
+    # workstation URDFs' 1.4-1.9M triangles that is what separates a discrete
+    # GPU from an integrated one. Left on to match viser's default (unchanged
+    # visuals); `shadows: false` is the escape hatch for a GPU-bound client.
+    server.scene.configure_default_lights(enabled=True, cast_shadow=viewer_cfg.shadows)
     gui = PlaybackGUI(
         server,
         n_frames=episode.n_frames,
@@ -69,6 +76,7 @@ def run(
                         positions=xyz,
                         name=f"/trails/{ee.label}",
                         color=ee.color,
+                        max_points=viewer_cfg.trails.max_points,
                     )
                 )
 

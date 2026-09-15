@@ -58,12 +58,26 @@ uv sync --extra dev
 `configs/viewer.yaml` 保存回放与标注的默认值（用 `--viewer-config PATH` 覆盖）。两种可视化标注**默认关闭**，可按需在此开启：
 
 ```yaml
+shadows: true        # 默认光源是否投射阴影（默认：true，见下文）
 trails:
   enabled: true      # 每个配置的 ee_frame 一条彗星式末端轨迹（默认：false）
-  max_points: 500    # 长轨迹最多下采样到该点数
+  max_points: 500    # 可见尾迹长度（帧数）；更早的点会滑出
 keyposes:
   enabled: true      # 在检测到的抓取/释放事件处显示 3D "grasp_close@N" / "release@N" 标记（默认：false）
 ```
+
+### 回放性能
+
+回放在服务端（约 4 ms/帧，约 235 fps 余量）和网络上（30 fps 时约 0.2 MB/s）都很轻。开销几乎全部在**客户端 GPU**：工作站 URDF 有 140 万～190 万个三角面，独立显卡可以流畅播放，集成显卡则很吃力。
+
+回放卡顿时，有两个关键选项：
+
+- **`shadows: false`**。阴影默认开启（与 viser 默认一致），因此开箱画面不变。Viser 默认光源会投射一张三级联 1024² PCSS 阴影贴图，且每帧重算，因此开启阴影会让每帧把整个场景绘制约 4 次（1 次颜色 pass + 3 次阴影深度 pass）。当客户端 GPU 成为瓶颈时，关闭阴影是收益最大的单项优化。
+- 在查看器 URL 后加 **`?fixedDpr=0.5`**（例如 `http://localhost:8080/?fixedDpr=0.5`），或使用 viser 开发面板中的 "Device Pixel Ratio" 下拉框。Viser 的自适应 DPR 不会低于 `devicePixelRatio` 的 0.75 倍，因此高分屏上受 GPU 限制的客户端无法自行降级。
+
+如果仍然很慢，请检查 `chrome://gpu`——若浏览器已回退到软件 WebGL，无论怎么配置该场景都只有个位数帧率。
+
+`trails.max_points` 将可见尾迹限制为该帧数（30 fps 下 500 帧约 16.7 秒），使每帧的轨迹开销保持恒定，而不随片段长度增长。
 
 ## 测试
 

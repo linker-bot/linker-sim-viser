@@ -92,6 +92,13 @@ class ViewerConfig:
     loop: bool = False
     default_speed: float = 1.0
     speed_presets: tuple[float, ...] = (0.25, 0.5, 1.0, 2.0, 4.0)
+    # On by default, matching viser's own default so replay looks unchanged.
+    # Worth knowing what it costs: viser's default light casts a 3-cascade
+    # 1024^2 PCSS shadow map that it recomputes every frame, so the whole scene
+    # is drawn ~4x per frame (one colour pass + three shadow depth passes). On
+    # the workstation URDFs that is ~1.4-1.9M triangles per pass, which a
+    # discrete GPU absorbs and an integrated one does not — set false there.
+    shadows: bool = True
     trails: TrailsConfig = field(default_factory=TrailsConfig)
     keyposes: KeyposesConfig = field(default_factory=KeyposesConfig)
 
@@ -161,6 +168,7 @@ def load_viewer_config(path: Path | str) -> ViewerConfig:
         loop=raw.get("loop", False),
         default_speed=raw.get("default_speed", 1.0),
         speed_presets=tuple(raw.get("speed_presets", (0.25, 0.5, 1.0, 2.0, 4.0))),
+        shadows=raw.get("shadows", True),
         trails=trails,
         keyposes=keyposes,
     )
