@@ -13,6 +13,10 @@ class DecoderSpec:
     kind: str                                  # e.g. "linkerhand_l6"
     side: str                                  # "left" | "right"
     sdk_range: tuple[float, float] = (0.0, 255.0)
+    # Which form the recording stores: "raw" is the SDK's full wire vector
+    # (reserved slots included), "active" is one column per actuated joint.
+    # The decoder owns the slot layout; see linker_robot_assets.decoders.
+    slots: str = "active"
 
 
 @dataclass
@@ -22,12 +26,36 @@ class StreamSpec:
     `joints` order is authoritative — column i of the streamed array feeds
     `joints[i]`. If `decoder` is set, values are treated as raw SDK numbers
     in `decoder.sdk_range` and decoded to URDF radians.
+
+    Give either `slice` (explicit half-open column range) or, for a decoded
+    stream, `offset` — the block's first column, whose width then comes from
+    the hand's declared SDK layout rather than a hand-copied number. Writing
+    widths out by hand is what produced issues #7 and #9.
     """
 
     key: str
     joints: list[str]
     slice: tuple[int, int] | None = None
+    offset: int | None = None
     decoder: DecoderSpec | None = None
+
+    def columns(self) -> tuple[int, int]:
+        """Half-open column range this stream reads from its npz key."""
+        if self.slice is not None:
+            return self.slice
+        if self.offset is None:
+            raise ValueError(
+                f"stream key={self.key!r} declares neither 'slice' nor 'offset'"
+            )
+        if self.decoder is None:
+            raise ValueError(
+                f"stream key={self.key!r} uses 'offset' without a decoder; "
+                "only a decoded stream can derive its width from a SDK layout"
+            )
+        from linker_robot_assets.decoders import sdk_channel_width
+
+        width = sdk_channel_width(self.decoder.kind, slots=self.decoder.slots)
+        return self.offset, self.offset + width
 
 
 @dataclass
@@ -81,6 +109,7 @@ def load_robot_config(path: Path | str) -> RobotConfig:
                 kind=dec["kind"],
                 side=dec["side"],
                 sdk_range=tuple(dec.get("sdk_range", (0.0, 255.0))),
+                slots=dec.get("slots", "active"),
             )
             if dec
             else None
@@ -90,6 +119,7 @@ def load_robot_config(path: Path | str) -> RobotConfig:
                 key=s["key"],
                 joints=list(s["joints"]),
                 slice=tuple(s["slice"]) if s.get("slice") else None,
+                offset=s.get("offset"),
                 decoder=decoder,
             )
         )
