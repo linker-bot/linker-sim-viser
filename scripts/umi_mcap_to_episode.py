@@ -247,7 +247,17 @@ def _apply_anchor(rebased: np.ndarray, T_ws_tool0: np.ndarray,
 
 def _search_anchor(chain: ArmChain, rebased: np.ndarray, T_ws_tool0: np.ndarray,
                    init: np.ndarray, n_probe: int = 30, rot_weight: float = 0.05):
-    """Nelder-Mead over [dx,dy,dz,roll,pitch,yaw], minimizing subsampled IK RMS."""
+    """Nelder-Mead over [dx,dy,dz,roll,pitch,yaw], minimizing subsampled IK RMS.
+
+    The initial simplex is built explicitly because the default one cannot move
+    the rotation axes. Nelder-Mead seeds each vertex by scaling one coordinate
+    5%, falling back to an absolute 0.00025 when that coordinate is exactly 0 —
+    and roll/pitch/yaw seed at 0 unless --anchor-roll/pitch/yaw say otherwise.
+    So the default simplex probes the three rotation axes 0.014° wide, `xatol`
+    (2e-3) immediately calls them converged, and the search silently degrades to
+    translation-only: the recorded wrist frame is left unrotated relative to
+    tool0 and the arm tracks it to ~80mm instead of sub-mm.
+    """
     from scipy.optimize import minimize
 
     probe_idx = np.linspace(0, len(rebased) - 1, min(n_probe, len(rebased))).astype(int)
@@ -257,8 +267,14 @@ def _search_anchor(chain: ArmChain, rebased: np.ndarray, T_ws_tool0: np.ndarray,
         _, pe, re = chain.track(arm_pose, warmup=120, iters=40)
         return float(np.sqrt(np.mean(pe ** 2)) + rot_weight * np.sqrt(np.mean(re ** 2)))
 
+    # 2cm / 0.3rad vertex steps. 0.3 is deliberate: 1.0 overshoots into a basin
+    # that converges ~40mm, and the default ~0 does not move at all.
+    steps = np.array([0.02] * 3 + [0.3] * 3)
+    simplex = np.vstack([init, init + np.diag(steps)])
+
     res = minimize(cost, init, method="Nelder-Mead",
-                   options={"xatol": 2e-3, "fatol": 1e-3, "maxiter": 300})
+                   options={"initial_simplex": simplex, "xatol": 2e-3,
+                            "fatol": 1e-3, "maxiter": 600})
     return res.x, res.fun
 
 
