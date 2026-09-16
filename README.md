@@ -75,7 +75,7 @@ Loader and decoder tests run against `data/episode_000000/`; they skip cleanly i
 
 ## UMI-Dex mcap replay (experimental)
 
-UMI-Dex handheld bags (ROS 2 mcap: a 6-DOF wrist pose on `/vut/pose` + LinkerHand L6 percent on
+UMI-Dex handheld bags (ROS 2 mcap: a 6-DOF wrist pose on `/vut/pose` + LinkerHand L6 SDK 0-255 on
 `/hand/joint_states`) are replayed by first converting them to a viewer-native episode, mirroring
 `linker-sim`'s UMI pipeline. The converter reads the bag, resamples to a fixed rate, anchors the
 wrist pose to the arm's `tool0` via a Nelder-Mead search, solves DLS IK to retarget the 7-DOF right

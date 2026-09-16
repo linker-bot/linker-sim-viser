@@ -4,12 +4,12 @@ Mirrors the linker-sim UMI pipeline
 (``scripts/umi_bag_to_ee_poses.py`` + ``add_hand_to_npz.py`` + ``controllers/ik.py``)
 but runs **entirely offline** with ``yourdfpy`` — no MuJoCo, no ROS, no rosbags:
 
-    /vut/pose (wrist 6-DoF) + /hand/joint_states (0-100%)
+    /vut/pose (wrist 6-DoF) + /hand/joint_states (SDK 0-255)
         --[mcap-ros2-support]-->  read
         --> resample @hz  (position lerp + orientation Slerp / hand nearest)
         --> rebase frame-0 -> identity, anchor to arm_right:tool0 FK at default joints
         --> DLS IK  dq = Jᵀ(JJᵀ+λ²I)⁻¹dx  retargets the 7-DoF right arm
-        --> decode_hand  percent -> radians (linear-fit-v0)
+        --> decode_hand  SDK 0-255 -> 0-100 -> radians (linear-fit-v0)
         --> qpos (T,26) [L-arm7, R-arm7, L-hand6, R-hand6]
 
 The IK runs here (offline, warm-started, unlimited iterations) so the viewer stays a pure
@@ -45,6 +45,12 @@ from linker_robot_assets.decoders import decode_hand, CONVENTION
 WORKSTATION = "a7_lite_l6_dc"
 HAND_COMPONENT = "linkerhand_l6"
 EE_LINK = {"left": "arm_left_L7_Link", "right": "arm_right_R7_Link"}
+
+# `/hand/joint_states.positions` is on the SDK's 0-255 byte scale (earlier
+# recorders published 0-100 percent on the same topic). `decode_hand` takes
+# 0-100, so rescale linearly first — the same mapping the viewer applies to
+# SDK-recorded npz via a robot config's `decoder.sdk_range`.
+SDK_RANGE = (0.0, 255.0)
 
 
 # ---------- SE(3) helpers (Hamilton wxyz <-> scipy xyzw) ----------
@@ -278,7 +284,7 @@ def _search_anchor(chain: ArmChain, rebased: np.ndarray, T_ws_tool0: np.ndarray,
     return res.x, res.fun
 
 
-# ---------- hand percent -> SDK-channel-order reorder ----------
+# ---------- hand channel-order validation ----------
 
 def _canon(name: str) -> tuple[str, str]:
     """(finger, motion) key, ignoring lh_/rh_ prefix and cmc/mcp segment."""
@@ -286,25 +292,46 @@ def _canon(name: str) -> tuple[str, str]:
     return toks[0], toks[-1]
 
 
-def _reorder_to_sdk(pct: np.ndarray, msg_names: list[str], side: str) -> np.ndarray:
-    """Reorder /hand/joint_states columns into the decoder.yaml SDK channel order.
+def _check_sdk_order(pct: np.ndarray, msg_names: list[str], side: str) -> np.ndarray:
+    """Validate a `/hand/joint_states` block that is already in SDK channel order.
 
-    The bag may order thumb DoFs roll-first while the L6 decoder expects pitch-first;
-    matching by (finger, motion) instead of position is robust to that.
+    `positions` arrives in the decoder's SDK channel order — thumb pitch first,
+    then thumb roll, then index..pinky — so it is handed to `decode_hand`
+    unpermuted.
+
+    Do NOT reorder by `names[]`. That array is published as the UI display
+    order (thumb *roll* first), which disagrees with the order `positions`
+    actually arrives in, so trusting it swaps the two thumb DoFs: the thumb's
+    67 deg opposition sweep lands on cmc_pitch, whose travel is capped at 48 deg,
+    while cmc_roll gets the 17 deg flexion. Confirmed with the operator
+    2026-09-16 as the final channel order; the root fix is upstream in
+    umi-dex-pro (`STM32_ENCODER_ORDER` has the two thumb entries transposed).
+
+    Names are still checked as a guard: a bag from a different hand, or one
+    whose publisher was fixed to emit a genuinely different set, should fail
+    loudly here rather than silently decode onto the wrong joints.
     """
     spec = yaml.safe_load(
         (asset_root() / "components" / "hands" / HAND_COMPONENT / "decoder.yaml").read_text()
     )
     prefix = {"left": "l", "right": "r"}[side]
     channels = [c.replace("{S}", prefix) for c in spec["channels"]]
-    msg_col = {_canon(n): i for i, n in enumerate(msg_names)}
-    order = []
-    for ch in channels:
-        key = _canon(ch)
-        if key not in msg_col:
-            raise KeyError(f"decoder channel {ch!r} ({key}) not in bag names {msg_names}")
-        order.append(msg_col[key])
-    return pct[:, order]
+    expected = {_canon(c) for c in channels}
+    got = {_canon(n) for n in msg_names}
+    if got != expected:
+        raise ValueError(
+            f"bag hand channels {sorted(got)} do not match {HAND_COMPONENT} "
+            f"SDK channels {sorted(expected)} (bag names={msg_names})"
+        )
+    if pct.shape[1] != len(channels):
+        raise ValueError(
+            f"bag hand block is {pct.shape[1]} columns, expected {len(channels)}"
+        )
+    if [_canon(n) for n in msg_names] != [_canon(c) for c in channels]:
+        print(f"[umi] note: names[]={msg_names} lists a different order than the SDK "
+              f"channel order positions[] arrives in; ignoring names[] by design "
+              f"(see _check_sdk_order)", flush=True)
+    return pct
 
 
 # ---------- main ----------
@@ -395,13 +422,25 @@ def main() -> int:
     print(f"[umi] IK residual: pos mean={pe.mean()*1000:.2f}mm max={pe.max()*1000:.2f}mm ; "
           f"rot mean={np.degrees(re.mean()):.2f}° max={np.degrees(re.max()):.2f}°", flush=True)
 
-    # Hand: reorder bag columns into the decoder's SDK channel order (by name),
-    # then decode percent -> radians. (linker-sim's legacy-wiring path is not
+    # Hand: `/hand/joint_states.positions` is already in SDK channel order (its
+    # `names[]` array is not — see _check_sdk_order), so validate and pass it
+    # through, rescale the SDK byte range to the 0-100 `decode_hand` expects,
+    # then decode to radians. (linker-sim's legacy-wiring path is not
     # ported: no legacy client bags here, and the correct behaviour under a
     # name-based reorder can't be verified without one — add it with real data.)
-    pct_sdk = _reorder_to_sdk(pct_rs, names, args.side)
-    hand_rad = decode_hand(HAND_COMPONENT, args.side, pct_sdk).astype(np.float32)
+    sdk_raw = _check_sdk_order(pct_rs, names, args.side)
+    lo_r, hi_r = SDK_RANGE
+    sdk_percent = (sdk_raw - lo_r) * (100.0 / (hi_r - lo_r))
+    # A bag that never exceeds 100 is probably an older 0-100 recording, which
+    # this rescale would squash into the bottom 39% (a near-closed hand). Cheap
+    # to detect, silent and wrong otherwise.
+    if sdk_raw.max() <= 100.0:
+        print(f"[umi] WARNING: hand channels peak at {sdk_raw.max():.0f}, never above 100 — "
+              f"this bag may be on the older 0-100 percent scale, not SDK_RANGE={SDK_RANGE}. "
+              f"Decoded hand angles will be too closed if so.", flush=True)
+    hand_rad = decode_hand(HAND_COMPONENT, args.side, sdk_percent).astype(np.float32)
     print(f"[umi] hand decoded ({CONVENTION}): shape={hand_rad.shape} "
+          f"sdk {sdk_raw.min():.0f}..{sdk_raw.max():.0f} -> "
           f"rad range " + ", ".join(f"{hand_rad[:,i].min():+.2f}..{hand_rad[:,i].max():+.2f}"
                                     for i in range(hand_rad.shape[1])), flush=True)
 
