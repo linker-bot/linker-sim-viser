@@ -90,9 +90,17 @@ class PlaybackGUI:
         self._set_playing(not self._playing)
 
     def _set_playing(self, playing: bool) -> None:
+        if self._playing == playing:
+            return
         self._playing = playing
         self._play_btn.label = "Pause" if playing else "Play"
         self._last_tick_wall = None            # reset elapsed accumulator
+        # Stable marker for external tools (e.g. Web window recorder) to
+        # start/stop capture when the operator clicks Play/Pause.
+        print(
+            f"[linker-sim-viser] playing={'1' if playing else '0'}",
+            flush=True,
+        )
 
     def _on_scrub(self) -> None:
         # Viser hands us typed-in slider values verbatim, without clamping to
