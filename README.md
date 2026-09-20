@@ -58,12 +58,26 @@ Flags:
 `configs/viewer.yaml` holds playback + annotation defaults (override with `--viewer-config PATH`). The two visual annotations are **off by default** — enable them here as you wish:
 
 ```yaml
+shadows: true        # default light casts shadows (default: true — see below)
 trails:
   enabled: true      # comet EE motion trail per configured ee_frame (default: false)
-  max_points: 500    # downsample long trajectories to at most this many points
+  max_points: 500    # length of the visible tail, in frames; older points slide off
 keyposes:
   enabled: true      # 3D "grasp_close@N" / "release@N" stamps at detected grasp/release events (default: false)
 ```
+
+### Playback performance
+
+Replay is cheap on the server (~4 ms/frame, ~235 fps of headroom) and on the network (~0.2 MB/s at 30 fps). Cost lives almost entirely in the **client GPU**: the workstation URDFs are 1.4–1.9 M triangles, so a discrete GPU plays them smoothly while an integrated one struggles.
+
+Two knobs matter if playback is laggy:
+
+- **`shadows: false`**. Shadows are on by default, matching viser, so the picture is unchanged out of the box. Viser's default light casts a 3-cascade 1024² PCSS shadow map that it recomputes every frame, so shadows make each frame draw the scene ~4× (one colour pass + three shadow depth passes). Turning them off is the single largest win on a GPU-bound client.
+- **`?fixedDpr=0.5`** on the viewer URL (e.g. `http://localhost:8080/?fixedDpr=0.5`), or the "Device Pixel Ratio" dropdown in viser's dev panel. Viser's adaptive DPR never drops below 0.75 × `devicePixelRatio`, so a GPU-bound client on a HiDPI display cannot rescue itself.
+
+If it is still slow, check `chrome://gpu` — a browser that has fallen back to software WebGL renders this scene at single-digit fps regardless of config.
+
+`trails.max_points` caps the visible tail at that many frames (500 ≈ 16.7 s at 30 fps), which keeps per-frame trail cost flat instead of growing with episode length.
 
 ## Tests
 
