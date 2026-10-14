@@ -76,7 +76,7 @@ keyposes:
 ## UMI-Dex mcap 回放（实验性）
 
 UMI-Dex 手持设备的 bag（ROS 2 mcap：`/vut/pose` 上的 6-DOF 手腕位姿 + `/hand/joint_states` 上的
-LinkerHand L6 百分比）通过先转换为查看器原生 episode 来回放，流程对齐 `linker-sim` 的 UMI 管线：
+LinkerHand L6 SDK 0-255 原始值）通过先转换为查看器原生 episode 来回放，流程对齐 `linker-sim` 的 UMI 管线：
 转换器读取 bag、重采样到固定帧率、用 Nelder-Mead 搜索把手腕位姿锚定到机械臂的 `tool0`、解 DLS IK
 把 7-DOF 右臂重定向到该轨迹、把手部解码为弧度，然后把 `telemetry.npz` + `metadata.json` 写进 episode 目录：
 
