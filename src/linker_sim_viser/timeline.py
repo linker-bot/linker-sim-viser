@@ -83,6 +83,10 @@ class PlaybackGUI:
             self._slider.value = target
         self._time_label.value = self._format_time(target)
 
+    def pause(self) -> None:
+        """Stop playback without changing the selected frame."""
+        self._set_playing(False)
+
     def _current_speed(self) -> float:
         return float(self._speed.value.rstrip("x"))
 

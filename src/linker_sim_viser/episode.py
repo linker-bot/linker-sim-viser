@@ -25,6 +25,7 @@ class Episode:
     n_frames: int
     joint_positions: dict[str, np.ndarray]     # URDF joint name -> (T,) rad
     hand_sdk: dict[str, np.ndarray] = field(default_factory=dict)   # side -> (T, 6) raw
+    arm_poses: dict[str, np.ndarray] = field(default_factory=dict)  # side -> (T, 7) xyz+wxyz
 
 
 def _layout_note(robot: RobotConfig, key: str) -> str:
@@ -53,7 +54,7 @@ def _layout_note(robot: RobotConfig, key: str) -> str:
 
 def load_episode(episode_dir: Path | str, robot: RobotConfig) -> Episode:
     ep = Path(episode_dir)
-    meta = json.loads((ep / "metadata.json").read_text())
+    meta = json.loads((ep / "metadata.json").read_text(encoding="utf-8"))
     npz = np.load(ep / "telemetry.npz")
 
     fps = meta.get("fps")
@@ -62,6 +63,18 @@ def load_episode(episode_dir: Path | str, robot: RobotConfig) -> Episode:
 
     joint_positions: dict[str, np.ndarray] = {}
     hand_sdk: dict[str, np.ndarray] = {}
+    arm_poses: dict[str, np.ndarray] = {}
+
+    # UMI-converted episodes carry absolute workcell-frame EE targets. Keep
+    # these separate from qpos so pose tuning can use them without changing
+    # the existing replay stream mapping.
+    for side in ("left", "right"):
+        key = f"arm_{side}"
+        if key not in npz.files:
+            continue
+        poses = np.asarray(npz[key])
+        if poses.shape == (n_frames, 7) and np.all(np.isfinite(poses)):
+            arm_poses[side] = poses.astype(np.float32, copy=True)
 
     # Fail fast on a config↔recording mismatch. A robot config declares column
     # ranges into each npz key, and numpy silently *truncates* an over-long
@@ -136,4 +149,5 @@ def load_episode(episode_dir: Path | str, robot: RobotConfig) -> Episode:
         n_frames=n_frames,
         joint_positions=joint_positions,
         hand_sdk=hand_sdk,
+        arm_poses=arm_poses,
     )
