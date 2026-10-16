@@ -3,8 +3,18 @@ loop: false
 default_speed: 1.0
 speed_presets: [0.25, 0.5, 1.0, 2.0, 4.0]
 
+# Shadows from viser's default light. On by default, matching viser — replay
+# looks the same as it always has. The cost is real, though: the light is a
+# 3-cascade 1024^2 PCSS shadow map recomputed every frame, so the scene is drawn
+# ~4x per frame instead of once, and the workstation URDFs are 1.4-1.9M
+# triangles. That is the difference between smooth playback and a slideshow on
+# an integrated GPU — set false if replay is laggy on your client.
+shadows: true
+
 # Comet EE motion trails. Off by default (an annotation over the base replay);
 # set enabled: true to draw a fading trail per configured EE frame.
+# max_points caps the visible tail; per-frame cost is O(max_points), so raising
+# it makes long episodes cost more per frame.
 trails:
   enabled: false
   max_points: 500
