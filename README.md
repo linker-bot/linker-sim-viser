@@ -1,3 +1,5 @@
+![LinkerBot and viser banner](docs/images/banner.png)
+
 # linker-sim-viser
 
 Language: [English](README.md) | [中文](README_zh.md)
