@@ -62,3 +62,7 @@ streams:
 ee_frames:
   - {label: left_tcp,  link: hand_left_lh_hand_base_link,   color: [80, 140, 220]}
   - {label: right_tcp, link: hand_right_rh_hand_base_link,  color: [230, 130, 60]}
+
+ik_frames:
+  left: arm_left_L7_Link
+  right: arm_right_R7_Link

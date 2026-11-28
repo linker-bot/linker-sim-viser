@@ -19,6 +19,9 @@ dist/
 data/
 outputs/
 
+# Local issue analysis plans
+/plan/
+
 # editors / IDEs
 .vscode/
 .idea/

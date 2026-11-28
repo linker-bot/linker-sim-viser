@@ -41,6 +41,16 @@ from scipy.spatial.transform import Rotation, Slerp
 
 from linker_robot_assets import asset_root
 from linker_robot_assets.decoders import decode_hand, CONVENTION
+from linker_sim_viser.kinematics import ArmChain
+from linker_sim_viser.pose_math import (
+    apply_transform_to_pose,
+    matrix_to_pose,
+    multiply_quaternions_wxyz,
+    pose_to_matrix,
+    quaternion_wxyz_from_matrix,
+    quaternion_wxyz_from_rpy_xyz,
+    quaternion_wxyz_to_matrix,
+)
 
 WORKSTATION = "a7_lite_l6_dc"
 HAND_COMPONENT = "linkerhand_l6"
@@ -64,15 +74,7 @@ def _xyzw_to_wxyz(q: np.ndarray) -> np.ndarray:
 
 
 def _pose_to_T(p: np.ndarray, q_wxyz: np.ndarray) -> np.ndarray:
-    T = np.eye(4)
-    T[:3, :3] = Rotation.from_quat(_wxyz_to_xyzw(q_wxyz)).as_matrix()
-    T[:3, 3] = p
-    return T
-
-
-def _T_to_pose7(T: np.ndarray) -> np.ndarray:
-    q_xyzw = Rotation.from_matrix(T[:3, :3]).as_quat()
-    return np.concatenate([T[:3, 3], _xyzw_to_wxyz(q_xyzw)])
+    return pose_to_matrix(p, q_wxyz)
 
 
 # ---------- mcap reading ----------
@@ -133,122 +135,26 @@ def _resample_nearest(t_src_ns: np.ndarray, vals: np.ndarray, t_tgt_ns: np.ndarr
     return vals[pick]
 
 
-# ---------- workstation kinematics (fast analytic FK + geometric-Jacobian DLS IK) ----------
-
-def _rodrigues(axis: np.ndarray, th: float) -> np.ndarray:
-    K = np.array([[0, -axis[2], axis[1]], [axis[2], 0, -axis[0]], [-axis[1], axis[0], 0]])
-    return np.eye(3) + np.sin(th) * K + (1.0 - np.cos(th)) * (K @ K)
-
-
-class ArmChain:
-    """Fast analytic FK + geometric-Jacobian DLS IK for one arm.
-
-    FK is a product of the base→tool0 joint chain extracted from the URDF (validated
-    to machine precision against yourdfpy). The geometric Jacobian is exact:
-    column i = [zᵢ × (p_ee − pᵢ); zᵢ] with zᵢ/pᵢ the world axis/origin of revolute
-    joint i. IK is DLS `dq = Jᵀ(JJᵀ+λ²I)⁻¹dx`, ported from linker-sim controllers/ik.py.
-    Everything is µs-scale, so a full-episode IK is seconds and an anchor search is feasible.
-    """
-
-    def __init__(self, urdf: yourdfpy.URDF, side: str, damping: float = 0.05):
-        self.damping = damping
-        ee_link = EE_LINK[side]
-        jmap = {j.child: j for j in urdf.robot.joints}
-        chain = []
-        link = ee_link
-        while link in jmap:
-            chain.append(jmap[link])
-            link = jmap[link].parent
-        chain = chain[::-1]
-
-        self._steps: list[tuple[np.ndarray, np.ndarray | None]] = []
-        self.lower: list[float] = []
-        self.upper: list[float] = []
-        for j in chain:
-            axis = None
-            if j.type in ("revolute", "continuous"):
-                axis = np.asarray(j.axis, dtype=float)
-                axis = axis / np.linalg.norm(axis)
-                self.lower.append(j.limit.lower if j.limit else -np.pi)
-                self.upper.append(j.limit.upper if j.limit else np.pi)
-            self._steps.append((np.asarray(j.origin, dtype=float), axis))
-        self.lower = np.array(self.lower)
-        self.upper = np.array(self.upper)
-        self.n = len(self.lower)
-        assert self.n == 7, f"expected 7 arm joints, got {self.n}"
-
-    def fk(self, q: np.ndarray):
-        """Return (T_ee 4x4, axes_world (7,3), origins_world (7,3))."""
-        T = np.eye(4)
-        ai = 0
-        axes = np.empty((self.n, 3))
-        origins = np.empty((self.n, 3))
-        for origin, axis in self._steps:
-            T = T @ origin
-            if axis is not None:
-                axes[ai] = T[:3, :3] @ axis
-                origins[ai] = T[:3, 3]
-                R = np.eye(4)
-                R[:3, :3] = _rodrigues(axis, q[ai])
-                T = T @ R
-                ai += 1
-        return T, axes, origins
-
-    def tool0_default(self) -> np.ndarray:
-        return self.fk(np.zeros(self.n))[0]
-
-    def solve(self, target: np.ndarray, q_init: np.ndarray, max_iters: int,
-              tol_pos: float = 1e-4, tol_rot: float = 1e-3,
-              max_step: float = 0.3) -> tuple[np.ndarray, float, float]:
-        """target: (7,) wxyz pose. Returns (q_arm, pos_err_norm, rot_err_norm)."""
-        tgt_pos = target[:3]
-        tgt_R = Rotation.from_quat(_wxyz_to_xyzw(target[3:7])).as_matrix()
-        q = np.clip(q_init.copy(), self.lower, self.upper)
-        pe = re = 0.0
-        for _ in range(max_iters):
-            T, axes, origins = self.fk(q)
-            pos = T[:3, 3]
-            pos_err = tgt_pos - pos
-            orn_err = Rotation.from_matrix(tgt_R @ T[:3, :3].T).as_rotvec()
-            pe, re = float(np.linalg.norm(pos_err)), float(np.linalg.norm(orn_err))
-            if pe < tol_pos and re < tol_rot:
-                break
-            J = np.empty((6, self.n))
-            J[:3, :] = np.cross(axes, pos - origins).T
-            J[3:, :] = axes.T
-            dx = np.concatenate([pos_err, orn_err])
-            dq = J.T @ np.linalg.solve(J @ J.T + (self.damping ** 2) * np.eye(6), dx)
-            n = np.linalg.norm(dq)
-            if n > max_step:
-                dq *= max_step / n
-            q = np.clip(q + dq, self.lower, self.upper)
-        return q, pe, re
-
-    def track(self, arm_pose: np.ndarray, warmup: int, iters: int):
-        """IK over a full trajectory, warm-started. Returns (arm_q, pos_errs, rot_errs)."""
-        n_frames = len(arm_pose)
-        arm_q = np.zeros((n_frames, self.n))
-        pe = np.zeros(n_frames)
-        re = np.zeros(n_frames)
-        q = np.zeros(self.n)
-        for f in range(n_frames):
-            q, pe[f], re[f] = self.solve(arm_pose[f], q, warmup if f == 0 else iters)
-            arm_q[f] = q
-        return arm_q, pe, re
-
-
 # ---------- anchor: rebase + place trajectory, optional Nelder-Mead search ----------
 
 def _apply_anchor(rebased: np.ndarray, T_ws_tool0: np.ndarray,
                   params: np.ndarray) -> np.ndarray:
     """params = [dx,dy,dz, roll,pitch,yaw]. Returns arm_pose (T,7) wxyz."""
     dx, dy, dz, roll, pitch, yaw = params
-    T_extra = np.eye(4)
-    T_extra[:3, :3] = Rotation.from_euler("xyz", [roll, pitch, yaw]).as_matrix()
-    T_xyz = np.eye(4)
-    T_xyz[:3, 3] = [dx, dy, dz]
-    T_anchor = T_xyz @ T_ws_tool0 @ T_extra
-    return np.stack([_T_to_pose7(T_anchor @ T) for T in rebased])
+    q_tool0 = quaternion_wxyz_from_matrix(T_ws_tool0[:3, :3])
+    q_extra = quaternion_wxyz_from_rpy_xyz(np.array([roll, pitch, yaw]))
+    q_anchor = multiply_quaternions_wxyz(q_tool0, q_extra)
+    p_anchor = np.array([dx, dy, dz], dtype=np.float64) + T_ws_tool0[:3, 3]
+    T_anchor = pose_to_matrix(p_anchor, q_anchor)
+
+    anchored = []
+    for relative_pose in rebased:
+        position, quaternion = matrix_to_pose(relative_pose)
+        position, quaternion = apply_transform_to_pose(
+            T_anchor, position, quaternion
+        )
+        anchored.append(np.concatenate([position, quaternion]))
+    return np.stack(anchored)
 
 
 def _search_anchor(chain: ArmChain, rebased: np.ndarray, T_ws_tool0: np.ndarray,
@@ -312,7 +218,9 @@ def _check_sdk_order(pct: np.ndarray, msg_names: list[str], side: str) -> np.nda
     loudly here rather than silently decode onto the wrong joints.
     """
     spec = yaml.safe_load(
-        (asset_root() / "components" / "hands" / HAND_COMPONENT / "decoder.yaml").read_text()
+        (asset_root() / "components" / "hands" / HAND_COMPONENT / "decoder.yaml").read_text(
+            encoding="utf-8"
+        )
     )
     prefix = {"left": "l", "right": "r"}[side]
     channels = [c.replace("{S}", prefix) for c in spec["channels"]]
@@ -388,12 +296,15 @@ def main() -> int:
     urdf_path = asset_root() / "workstations" / WORKSTATION / "workstation.urdf"
     urdf = yourdfpy.URDF.load(str(urdf_path), build_scene_graph=True, load_meshes=False,
                               build_collision_scene_graph=False, load_collision_meshes=False)
-    chain = ArmChain(urdf, args.side)
+    chain = ArmChain(urdf, EE_LINK[args.side])
 
     # Rebase frame-0 -> identity, optional axis remap (pre-anchor).
     T0_inv = np.linalg.inv(_pose_to_T(poses_rs[0, :3], poses_rs[0, 3:7]))
     rebased = np.stack([T0_inv @ _pose_to_T(p[:3], p[3:7]) for p in poses_rs])
-    R_remap = Rotation.from_euler("xyz", [args.remap_roll, args.remap_pitch, args.remap_yaw]).as_matrix()
+    q_remap = quaternion_wxyz_from_rpy_xyz(
+        np.array([args.remap_roll, args.remap_pitch, args.remap_yaw])
+    )
+    R_remap = quaternion_wxyz_to_matrix(q_remap)
     T_remap = np.eye(4); T_remap[:3, :3] = R_remap
     T_remap_inv = np.eye(4); T_remap_inv[:3, :3] = R_remap.T
     rebased = np.stack([T_remap @ d @ T_remap_inv for d in rebased])
@@ -463,7 +374,9 @@ def main() -> int:
     )
     meta = {"fps": args.hz, "dt": dt_ns / 1e9, "frame_count": n_frames,
             "source": "umi_mcap", "side": args.side}
-    (args.episode / "metadata.json").write_text(json.dumps(meta, indent=2))
+    (args.episode / "metadata.json").write_text(
+        json.dumps(meta, indent=2), encoding="utf-8"
+    )
     print(f"[umi] wrote {out_npz} and metadata.json "
           f"({n_frames} frames). Replay with:\n"
           f"      .venv/bin/python scripts/replay.py --robot a7_lite_l6_umi_{args.side} "

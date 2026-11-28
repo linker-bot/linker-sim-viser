@@ -14,3 +14,18 @@ trails:
 # set enabled: true to annotate manipulation episodes.
 keyposes:
   enabled: false
+
+# Pose Tuning uses the converted episode arm pose when available, then checks
+# the full re-anchored IK trajectory against these error limits.
+pose_tuning:
+  enabled: true
+  mean_position_limit_mm: 10.0
+  max_position_limit_mm: 30.0
+  mean_angle_limit_deg: 5.0
+  max_angle_limit_deg: 10.0
+  solve_position_tolerance_mm: 0.1
+  solve_angle_tolerance_deg: 0.0572957795
+  preview_iterations: 100
+  first_frame_iterations: 200
+  frame_iterations: 100
+  damping: 0.05
